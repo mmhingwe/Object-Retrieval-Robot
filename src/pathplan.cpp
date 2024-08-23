@@ -3,6 +3,7 @@
 #include <time.h>
 #include <vector>
 #include <stack>
+#include <numeric>
 #include "pathplan.h"
 // #include "datastructures/kdtree.h" TODO: Move kd tree into seperate datastructures folder.
 #include "kdtree.h"
@@ -93,6 +94,34 @@ void RRT::delete_intermediate_nodes(){
 
 void RRT::check_inputs(){
     cout << "RRTstar input check" << endl;
+}
+
+
+
+void RRT::save_path(){
+
+    vector<Eigen::VectorXd> buffer_path_mat;
+
+    rrtnode* ptr = this->goal_node;
+
+    while(ptr->parents.size() >= 1){
+
+        buffer_path_mat.push_back(ptr->data);
+
+        ptr = static_cast<rrtnode*>(ptr->parents[0]);
+
+    }
+
+    Eigen::MatrixXd path_matrix = Eigen::MatrixXd::Zero(this->config_space_dim,buffer_path_mat.size());
+    
+    Eigen::ArrayXi dim_idx_array = Eigen::ArrayXi::LinSpaced(this->config_space_dim,0,this->config_space_dim-1);
+
+    for (int i = 0; i < buffer_path_mat.size(); i++){
+        path_matrix(dim_idx_array,i) = buffer_path_mat[buffer_path_mat.size() - 1 -i];
+    }
+
+    this->path = path_matrix;
+
 }
 
 // Sample the configuration space.
@@ -250,6 +279,10 @@ int RRT::run(double step_size, double goal_radius, int max_itt){
             
                 // Add the goal node to the graph.
                 new_node->children.push_back(this->goal_node);
+                
+                //TODO: Add function which saves path from goal to the root in the pathplan::path matrix format.
+                this->save_path();
+
                 return count;
 
             }
@@ -272,8 +305,7 @@ rrtnode* RRT::return_root(){
 // Rows: Points of the path
 // Columns: coordinates of the point in the configuration space. 
 Eigen::MatrixXd RRT::return_path(){
-    Eigen::MatrixXd buf;
-    return buf;
+    return this->path;
 }
 
 Eigen::MatrixXd RRT::return_path_vec(){

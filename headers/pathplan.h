@@ -20,7 +20,7 @@ class pathplan{
         int config_space_dim;
         std::vector<Eigen::MatrixXd> constraints; // A (2n+2)xk sized matrix, where n is the dimensions of the configuration space and k is the number of constraints.
         Eigen::MatrixXd space_bounds;
-        Eigen::MatrixXd path;
+        Eigen::MatrixXd path; //dimension x number of points
         Eigen::VectorXd init;
         Eigen::VectorXd goal;
         virtual void check_inputs();
@@ -54,6 +54,7 @@ class RRT : private pathplan{
         // Private functions
         void check_inputs();
         void delete_intermediate_nodes();
+        void save_path();
         Eigen::VectorXd sample_space();
         bool check_collision(Eigen::VectorXd point);
         rrtnode* nearest_node(Eigen::VectorXd sample);

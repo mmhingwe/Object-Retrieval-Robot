@@ -41,3 +41,16 @@ test_path_plan
 Eigen3::Eigen
 python3.10 # Link python 3.10 for matplotlib
 )
+
+# Robot model class test executable
+add_executable(test_robot_model test_robot_tree.cpp ${SRC_FILES})
+include_directories(include ${MATPLOTLIB_PATH})
+include_directories(include /usr/include/python3.10)
+target_include_directories(test_robot_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/headers)
+target_link_libraries(
+test_robot_model
+${MUJOCO_PATH}/lib/libmujoco.so
+${MUJOCO_PATH}/lib/libmujoco.so.3.2.0
+glfw
+Eigen3::Eigen
+)

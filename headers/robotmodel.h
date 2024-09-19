@@ -19,6 +19,7 @@ struct bodynode : public node<int>{
     // The id of the body and the node which it is attached to
     int bodyid;
     int joint;
+    // Eigen::VectorXd screw_axis;
 
     // transform from the previous body
     Eigen::VectorXd rel_pos;
@@ -77,15 +78,22 @@ class jointnode : public node<int> {
 
 
     public:
-        jointnode(){}
+        jointnode(int jointid):jointid(jointid){}
         jointnode(int jointid,Eigen::VectorXd screw_axis);
         jointnode(std::vector<bodynode*> bodies);
         jointnode(Eigen::VectorXd position, Eigen::VectorXd velocity, Eigen::VectorXd accel, jointnode parent);
         void set_attached_bodies(std::vector<bodynode*> input);
+        void set_screw_axis(Eigen::VectorXd axis);
         void pass_info_to_child();
+        int getid();
+        Eigen::MatrixXd get_spatial_inertia();
+        Eigen::MatrixXd get_world_transform();
+        Eigen::MatrixXd get_local_transformation();
+        Eigen::VectorXd get_screw_axis();
         void set_rotation_variables(Eigen::MatrixXd R_p_i, Eigen::MatrixXd T_p_i, Eigen::MatrixXd R_w_i, Eigen::MatrixXd T_w_i);
         bodynode* get_attached_body();
         void print_info();
+        
 
 }; 
 
@@ -106,8 +114,9 @@ class robotModel{
         int joint_tree_size;
         jointnode* root_joint;
         bodynode* root_body;
+        std::vector<Eigen::VectorXd> joint_screw_axis;
 
-        
+        Eigen::MatrixXd joint_relation;
 
         // dfs through the joint three to calculate inertia of all bodies and the relative and global base position transformation matricies.
         void setup_joint_tree();
@@ -118,8 +127,12 @@ class robotModel{
     public:
         robotModel(mjModel* model, mjData* data); //upload the mj model
 
-        // Matrix x is a 4xn matrix where n is the number of joints, 1: position, 2: velocity, 3:acceleration, 4: external forces
+        // Matrix x is a 4xn matrix where n is the number of joints, 1: position, 2: velocity, 3:acceleration, 4: external forces, outputs the torque
         Eigen::VectorXd RNEA(Eigen::MatrixXd x);
+
+        // Forwards and Inverse kinematics calculators (used for task space to joint space conversion and vise versa.)
+        std::vector<Eigen::MatrixXd> FK(Eigen::MatrixXd q);
+        Eigen::VectorXd IK(int end_effector_body_id); 
 
         // Debugging functions
         void print_joint_tree();

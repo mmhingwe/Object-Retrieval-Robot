@@ -22,17 +22,12 @@ void pathplan::check_inputs(){
 }
 
 
-
-
-
 //RRTNode class definitions here.
 rrtnode::rrtnode(Eigen::VectorXd point, double dist){
     this->data = point;
     this->dist = dist;
     //TODO: Initialized the node class as well.
 }
-
-
 
 
 // RRT Class function definitions:

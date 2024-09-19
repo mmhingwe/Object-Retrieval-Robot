@@ -35,7 +35,28 @@ int main(){
     // cout << "body tree information" << endl;
     // model_tree.print_body_tree();
 
+    // cout << "Testing Spatial cross product" << endl;
+    // Eigen::VectorXd v11(6);
+    // Eigen::VectorXd v12(6);
+    // Eigen::VectorXd res(6);
+    // v11 << 1,0,0,0,0,0;
+    // v12 << 0,0,1,0,0,0;
+    // res = spatial_cross_product(v11,v12);
+    // cout << res << endl;
+    // return -1;
+
+
     cout << "joint tree information" << endl;
     model_tree.print_joint_tree();
 
+    cout << endl << endl << endl << endl << endl; 
+
+
+    Eigen::MatrixXd test_state(4,3);
+    test_state << 0,0,0,0,0,0,0,0,0,0,0,0;
+    cout << test_state << endl;
+
+    Eigen::VectorXd torque_calc(3);
+    torque_calc = model_tree.RNEA(test_state);
+    cout << torque_calc << endl;
 }

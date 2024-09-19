@@ -81,7 +81,7 @@ void return_info(mjModel* model){
 // Turns a vector into a skew symetric matrix
 Eigen::MatrixXd vector_to_skew(Eigen::VectorXd input){
     
-    cout << input.size() << endl;
+    // cout << input.size() << endl;
     
     Eigen::MatrixXd out(3,3);
     out << 0, -input(2), input(1),
@@ -90,6 +90,8 @@ Eigen::MatrixXd vector_to_skew(Eigen::VectorXd input){
     return out;
 }
 
+//Takes the adjoint of a transformation matrix
+// If star == true, then tkaing the transformation for wrench force
 Eigen::MatrixXd transform_adjoint(Eigen::MatrixXd input, bool star){
 
     Eigen::MatrixXd out(6,6);
@@ -102,13 +104,63 @@ Eigen::MatrixXd transform_adjoint(Eigen::MatrixXd input, bool star){
     P = input({0,1,2},3);
     P_skew = vector_to_skew(P.transpose());
 
-    out << R, Eigen::MatrixXd::Zero(3,3), P_skew*R, R;
+    // out << R, Eigen::MatrixXd::Zero(3,3), P_skew*R, R;
 
     if (!star){
+        out << R, Eigen::MatrixXd::Zero(3,3), P_skew*R, R;
         return out;
     }
     else{
-        return out.inverse().transpose();
+        out << R, P_skew*R, Eigen::MatrixXd::Zero(3,3),R;
+        return out;
+        // return out.inverse().transpose();
     }
+
+}
+
+// Returns the adjoint matrix of a spatrial vector
+Eigen::MatrixXd spatial_adjoint(Eigen::VectorXd input){
+    Eigen::MatrixXd out (6,6);
+    out << vector_to_skew(input({0,1,2})), Eigen::MatrixXd::Zero(3,3), vector_to_skew(input({3,4,5})), vector_to_skew(input({0,1,2}));
+    return out;
+}
+
+// Returns the spatial cross product of two spatial vectors
+Eigen::VectorXd spatial_cross_product(Eigen::VectorXd input1, Eigen::VectorXd input2, bool star){
+    //spatial cross product
+    if (!star){
+        Eigen::VectorXd out;
+        out = spatial_adjoint(input1) * input2;
+        return out;
+    }
+    // Wrench cross product
+    else{
+
+        //TODO: Make this spatial less expensive.
+        Eigen::VectorXd out(6);
+        Eigen::VectorXd w(3);
+        Eigen::VectorXd v(3);
+        Eigen::VectorXd t(3);
+        Eigen::VectorXd f(3);
+        w = input1({0,1,2});
+        v = input1({3,4,5});
+        t = input2({0,1,2});
+        f = input2({3,4,5});
+
+        out({0,1,2}) = (vector_to_skew(w) * t )+ (vector_to_skew(v)*f);
+        out({3,4,5}) = vector_to_skew(w) * f;
+
+        return out;
+
+    }
+}
+
+Eigen::MatrixXd exponential_rotation_spatial(Eigen::VectorXd screw, double theta){
+
+    Eigen::MatrixXd out (6,6);
+    out = Eigen::MatrixXd::Identity(6,6);
+    Eigen::MatrixXd adjoint = spatial_adjoint(screw);
+    out += (adjoint * sin(theta)) + ((adjoint*adjoint)*(1-cos(theta)));
+    return out;
 
 }

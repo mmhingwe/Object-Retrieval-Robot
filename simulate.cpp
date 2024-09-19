@@ -2,6 +2,7 @@
 #include <mujoco/mujoco.h>
 #include <GLFW/glfw3.h>
 #include "pathplan.h"
+#include "controllers.h"
 #include "util.h"
 
 using namespace std;

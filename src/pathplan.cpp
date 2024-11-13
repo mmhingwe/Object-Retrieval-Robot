@@ -6,11 +6,13 @@
 #include <numeric>
 #include "pathplan.h"
 // #include "datastructures/kdtree.h" TODO: Move kd tree into seperate datastructures folder.
-#include "kdtree.h"
+#include "datastructures/kdtree.h"
 using namespace std;
 
 
 // pathplan class function definitions
+
+pathplan::pathplan(){}
 
 pathplan::pathplan(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints,Eigen::MatrixXd space_bounds): init(init), goal(goal), config_space_dim(config_space_dim),constraints(constraints),space_bounds(space_bounds){
     check_inputs();
@@ -31,6 +33,12 @@ rrtnode::rrtnode(Eigen::VectorXd point, double dist){
 
 
 // RRT Class function definitions:
+RRT::RRT() : pathplan(){
+
+    // Iniialize random number generator
+    srand((unsigned)time(NULL));
+
+}
 
 RRT::RRT(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints, Eigen::MatrixXd space_bounds):  pathplan(init,goal,config_space_dim,constraints,space_bounds){
     check_inputs();
@@ -50,6 +58,19 @@ RRT::~RRT(){
    delete_intermediate_nodes();
    delete this->init_node;
    delete this->goal_node;
+}
+
+void RRT::set_perameters(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints,Eigen::MatrixXd space_bounds){
+
+    //Create Initial nodes
+    this->init_node = new rrtnode(init,0);
+    this->goal_node = new rrtnode(goal,0);
+
+    // setup constraints
+    this->config_space_dim = config_space_dim;
+    this->constraints = constraints;
+    this->space_bounds = space_bounds;
+
 }
 
 // O(2V+E) time and space to free all intermediate rrtnodes from the heap.
@@ -100,12 +121,13 @@ void RRT::save_path(){
     rrtnode* ptr = this->goal_node;
 
     while(ptr->parents.size() >= 1){
-
+        // cout << "going to parent" << endl;
         buffer_path_mat.push_back(ptr->data);
 
         ptr = static_cast<rrtnode*>(ptr->parents[0]);
 
     }
+    buffer_path_mat.push_back(this->init_node->data);
 
     Eigen::MatrixXd path_matrix = Eigen::MatrixXd::Zero(this->config_space_dim,buffer_path_mat.size());
     
@@ -115,6 +137,9 @@ void RRT::save_path(){
         path_matrix(dim_idx_array,i) = buffer_path_mat[buffer_path_mat.size() - 1 -i];
     }
 
+    // cout << "PATH MATRIX" << endl;
+    // cout << path_matrix << endl;
+
     this->path = path_matrix;
 
 }
@@ -123,23 +148,37 @@ void RRT::save_path(){
 Eigen::VectorXd RRT::sample_space(){
     
     vector<double> sample;
+    cout << this->space_bounds << endl;
 
     for(int i = 0; i < config_space_dim; i++){
-        int ub = space_bounds(i,1);
-        int lb = space_bounds(i,0);
+        int ub = space_bounds((2*i)+1,2);
+        int lb = space_bounds(2*i,2);
+
+        cout << lb << "   " << ub << endl;
+
         double gen_num = (double)rand()/RAND_MAX;
         
-        if(lb <= 0){
-            sample.push_back(((ub + abs(lb)) * gen_num) - abs(lb));
+        // if(lb <= 0){
+        //     sample.push_back(((ub + abs(lb)) * gen_num) - abs(lb));
 
-        }
-        else{
-            sample.push_back(((ub - lb) * gen_num) + lb);
-        }
+        // }
+        // else{
+        //     sample.push_back(((ub - lb) * gen_num) + lb);
+        // }
+
+        sample.push_back(((ub - lb) * gen_num) + lb);
 
     }
 
+    cout << "sample vector" << endl;
+    for (int i = 0; i < sample.size(); i++){
+        cout << sample[i] << "  ";
+    }
+    cout << endl;
+
     Eigen::VectorXd out = Eigen::Map<Eigen::VectorXd,Eigen::Unaligned>(sample.data(),sample.size());
+    cout << out << endl;
+
     return out;
 }
 
@@ -250,7 +289,26 @@ int RRT::run(double step_size, double goal_radius, int max_itt){
 
     cout << max_itt << endl;
 
+    double init_goal_dist = (this->init_node->data - this->goal_node->data).norm();
+    if (init_goal_dist < goal_radius){ 
+    
+        // Add the goal node to the graph.
+        this->init_node->children.push_back(this->goal_node);
+        this->goal_node->parents.push_back(this->init_node);
+        
+        //TODO: Add function which saves path from goal to the root in the pathplan::path matrix format.
+        this->save_path();
+
+        return count;
+
+    }
+
+
     while (count < max_itt){
+
+        // Uncomment for debug messages
+        cout << "Itteration: " << count << endl;
+        
         
         // sample a point from the bounds of the configuration space.
         Eigen::VectorXd sample = sample_space();
@@ -259,10 +317,11 @@ int RRT::run(double step_size, double goal_radius, int max_itt){
         rrtnode* nearest_neighbor = nearest_node(sample);
         Eigen::VectorXd line = sample - nearest_neighbor->data;
         Eigen::VectorXd new_point = nearest_neighbor->data + ((sample - nearest_neighbor->data) * step_size);
+
         
         // Check if the new point is within the infeasable region of the space
         if (!check_collision(new_point)){
-
+            cout << new_point << endl;
             // Create new node for the new point and add it to the graph.
             rrtnode* new_node = new rrtnode(new_point,sizeof(new_point));
             new_node->parents.push_back(nearest_neighbor); 
@@ -274,6 +333,7 @@ int RRT::run(double step_size, double goal_radius, int max_itt){
             
                 // Add the goal node to the graph.
                 new_node->children.push_back(this->goal_node);
+                this->goal_node->parents.push_back(new_node);
                 
                 //TODO: Add function which saves path from goal to the root in the pathplan::path matrix format.
                 this->save_path();
@@ -285,6 +345,10 @@ int RRT::run(double step_size, double goal_radius, int max_itt){
             count += 1;
 
         }
+
+        // Uncomment for debug messages
+        cout << "------------------------------------" << endl;
+
 
     }
 

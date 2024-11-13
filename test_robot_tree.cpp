@@ -10,6 +10,7 @@
 #include <string>
 #include "robotmodel.h"
 #include <numeric>
+#include "datastructures/kdtree.h"
 using namespace std;
 
 int main(){
@@ -59,4 +60,46 @@ int main(){
     Eigen::VectorXd torque_calc(3);
     torque_calc = model_tree.RNEA(test_state);
     cout << torque_calc << endl;
+
+
+    // TODO: Make seperate file to testcase this.
+    // Testing KD tree
+    cout << endl << endl << endl;
+
+    Eigen::VectorXd p1(2);
+    p1 << 2,6;
+    Eigen::VectorXd p2(2);
+    p2 << 5,4;
+    Eigen::VectorXd p3(2);
+    p3 << 8,7;
+    Eigen::VectorXd p4(2);
+    p4 << 10,2;
+    Eigen::VectorXd p5(2);
+    p5 << 13,3;
+    Eigen::VectorXd p6(2);
+    p6 << 9,4;
+
+    kdTree test_tree;
+
+    Eigen::MatrixXd test_mat(5,2);
+    test_mat << 2,6,5,4,8,7,10,2,13,3;
+    test_tree.populate(test_mat);
+
+    test_tree.delete_node(p2);
+
+    // test_tree.insert_node(p1);
+    // cout << "first point inserted" << endl;
+    // test_tree.insert_node(p2);
+    // cout << "second point inserted" << endl;
+    // test_tree.insert_node(p3);
+    // cout << "third point inserted" << endl;
+    // test_tree.insert_node(p4);
+    // cout << "fourth point inserted" << endl;
+    // test_tree.insert_node(p5);
+
+    cout << "points inserted" << endl;
+    
+    pair<Eigen::VectorXd,int> out = test_tree.find_nearest(p6);
+    cout << out.first << endl;
+
 }

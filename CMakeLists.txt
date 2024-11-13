@@ -19,6 +19,7 @@ file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 # Create main executable
 add_executable(simulate simulate.cpp ${SRC_FILES})
+include_directories(include ${MATPLOTLIB_PATH})
 include_directories(include ${MUJOCO_PATH}/include)
 include_directories(include ${EIGEN_PATH})
 target_include_directories(simulate PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/headers)
@@ -29,6 +30,7 @@ ${MUJOCO_PATH}/lib/libmujoco.so
 ${MUJOCO_PATH}/lib/libmujoco.so.3.2.0
 glfw
 Eigen3::Eigen
+python3.10 # Link python 3.10 for matplotlib
 )
 
 # Pathplan class test executable

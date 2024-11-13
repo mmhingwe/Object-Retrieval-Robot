@@ -102,7 +102,7 @@ Eigen::MatrixXd transform_adjoint(Eigen::MatrixXd input, bool star){
     // Get the rotation portion from the transformation matrix
     R = input({0,1,2},{0,1,2});
     P = input({0,1,2},3);
-    P_skew = vector_to_skew(P.transpose());
+    P_skew = vector_to_skew(P);
 
     // out << R, Eigen::MatrixXd::Zero(3,3), P_skew*R, R;
 
@@ -157,10 +157,31 @@ Eigen::VectorXd spatial_cross_product(Eigen::VectorXd input1, Eigen::VectorXd in
 
 Eigen::MatrixXd exponential_rotation_spatial(Eigen::VectorXd screw, double theta){
 
-    Eigen::MatrixXd out (6,6);
-    out = Eigen::MatrixXd::Identity(6,6);
-    Eigen::MatrixXd adjoint = spatial_adjoint(screw);
-    out += (adjoint * sin(theta)) + ((adjoint*adjoint)*(1-cos(theta)));
+    // Eigen::MatrixXd out (6,6);
+    // out = Eigen::MatrixXd::Identity(6,6);
+    // Eigen::MatrixXd adjoint = spatial_adjoint(screw);
+    // out += (adjoint * sin(theta)) + ((adjoint*adjoint)*(1-cos(theta)));
+    // return out;
+    
+
+    Eigen::MatrixXd out (4,4);
+    out = Eigen::MatrixXd::Identity(4,4);
+    
+    Eigen::VectorXd ang_vel = screw({0,1,2});
+    Eigen::VectorXd lin_vel = screw({3,4,5});
+
+    Eigen::MatrixXd skew_ang = vector_to_skew(ang_vel);
+    Eigen::MatrixXd mat_exp = Eigen::MatrixXd::Identity(3,3)+ (skew_ang * sin(theta)) + ((skew_ang * skew_ang) * (1-cos(theta)));
+    // Eigen::MatrixXd p = lin_vel * theta + ((skew_ang * lin_vel) * (1-cos(theta)));
+    Eigen::MatrixXd p = (Eigen::MatrixXd::Identity(3,3) - mat_exp) * lin_vel + (mat_exp*mat_exp.transpose()) * lin_vel*theta;
+    cout << p.rows() << ", " << p.cols() << endl;
+
+    out << mat_exp, p, Eigen::MatrixXd::Zero(1,3), 1;
+
+    // cout << "exp mat debug: " << endl;
+    // cout << out << endl;
+
     return out;
+
 
 }

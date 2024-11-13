@@ -499,27 +499,13 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
     vector<int> joint_indicies(this->joint_tree_size,0);
     for (int i =0; i < joint_indicies.size(); i++){
         joint_indicies.at(i) = i;
-        cout << joint_indicies.at(i) << "  ";
     }
-    cout << endl;
-    cout << "The indicies have been filled" << endl;
-
-    cout << "Input value" << endl;
-    cout << x << endl;
-
+   
     Eigen::VectorXd j = x(0,joint_indicies);
     Eigen::VectorXd j_dot = x(1,joint_indicies);
     Eigen::VectorXd j_ddot = x(2,joint_indicies);
     Eigen::VectorXd ext_force = x(3, joint_indicies);
     // Note, the force described in the world joint index is the gravity calculation which is to be used for all the force and torque calculations.
-    // cout << endl;
-    
-    // cout << j << endl << endl;
-    // cout << j_dot << endl << endl;
-    // cout << j_ddot << endl << endl;
-    // cout << ext_force << endl << endl;
-
-    // return j;
     
     // Step 1: Use BFS to calculate the transformation matricies using the joint tree (recall the joint tree gives rotation and inertia at base position)
     // Step 2: Using reclaculated transformation matricies, calculate the local acceleration and velocities of each joint using forward dynamics
@@ -528,10 +514,13 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
     vector<Eigen::VectorXd> loc_force(this->joint_tree_size);
     vector<double> loc_torque(this->joint_tree_size);
 
+    // Keep track of updated global rotation matricies.
+    vector<Eigen::MatrixXd> updated_world_transforms(this->joint_tree_size,Eigen::MatrixXd::Zero(4,4));
+    updated_world_transforms.at(0) = Eigen::MatrixXd::Identity(4,4);
+
     // Get transformation matrix from world coordinates to each specific joint coordinates 
     // Will need to calculate the updated matrix transformation for each joint. Use Rodrigues' formula to calculate the matrix exponential easier.
     vector<Eigen::MatrixXd> global_trans(this->joint_tree_size);
-
 
     // world accel and velocity will always be zero
     loc_vec.at(0) = (Eigen::VectorXd::Zero(6)); 
@@ -539,8 +528,7 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
     loc_force.at(0) = (Eigen::VectorXd::Zero(6));
     loc_torque.at(0) = (0);
 
-    cout << "All Vectors initialized" << endl;
-
+    // cout << "All Vectors initialized" << endl;
     queue<jointnode*> q; 
     queue<jointnode*> backward_q;
     jointnode* ptr = this->root_joint;
@@ -549,29 +537,21 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
         q.push(static_cast<jointnode*>(ptr->children[i]));
     }
 
-    cout << "Size of queue: " << q.size() << endl;
-
+    // Calculate spatial acceleration and velocity and updated global transformation matricies.
     while(!q.empty()){
-
+        cout << "+_+_+_+_+_+_+__+___+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+__" << endl;
         ptr = q.front();
         q.pop();
-
-        cout << "Joint id: " << ptr->getid() << endl;
-        cout << "Size of queue: " << q.size() << endl;
 
         int curr_jnt_id = ptr->getid();
 
         // Get adjoint transformation
         int parentid = static_cast<jointnode*>(ptr->parents[0])->getid();
-        Eigen::MatrixXd transform_local = ptr->get_local_transformation().inverse(); //NOTE: May not need to inverse this.
-        Eigen::MatrixXd adj_local_trans = transform_adjoint(transform_local);
+        Eigen::MatrixXd transform_local = ptr->get_local_transformation() * exponential_rotation_spatial(ptr->get_screw_axis(),j(ptr->getid()));
+        Eigen::MatrixXd adj_local_trans = transform_adjoint(transform_local.inverse());
 
-        //Debug matrix sizes:
-        cout << "Transform local:  " << transform_local.rows() << "x" << transform_local.cols() << endl;
-        cout << "Transform local:  " << adj_local_trans.rows() << "x" << adj_local_trans.cols() << endl;
-        cout << "screw axis size:   " << this->joint_screw_axis[curr_jnt_id].size() << endl << endl;
-        
-
+        cout << "joint: " << ptr->getid() << endl << "Transformation matrix: " << transform_local << endl << endl << "transformation local: " << ptr->get_local_transformation() << endl;
+        updated_world_transforms.at(ptr->getid()) = updated_world_transforms.at(static_cast<jointnode*>(ptr->parents.at(0))->getid()) * transform_local;
 
         // Calculate local velocity and store it in loc_vec
         loc_vec.at(curr_jnt_id) = adj_local_trans * loc_vec.at(parentid) + this->joint_screw_axis[curr_jnt_id] * j_dot(curr_jnt_id);
@@ -590,23 +570,10 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
         }
 
 
+    
+
     }
-
-    cout << "The Velocity and acceleration has been calculated" << endl;
-
-    cout << "BEEP BOOP RNEA TIME" << endl;
-    for (int i =0; i<loc_vec.size(); i++){
-        cout << "Joint " << i <<": " << endl <<loc_vec.at(i) << endl;
-        cout << endl;
-    }
-
-    cout << endl << "Printing out acceleration" << endl;
-
-    cout << "acceleration be here" << endl;
-    for (int i =0; i<loc_vec.size(); i++){
-        cout << "Joint " << i <<": "<< endl <<loc_vec.at(i) << endl;
-        cout << endl;
-    }
+    cout << endl << endl << endl << endl;
 
     // Step 3 backwards pass to calculate force and torque.
     // When doing forwards pass, add all childless joint nodes to the backwards pass queue.
@@ -616,7 +583,6 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
     Eigen::VectorXd spatial_gravity(6);
     spatial_gravity << 0,0,0, 0,0,-9.81; // This should be replaced by the x input. But for now, this will be the gravity in the world frame. 
 
-    cout << "Beginning Force Calculations" << endl;
 
     //Calculate the force and torque at each point.
     while(!backward_q.empty()){
@@ -627,60 +593,55 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
         backward_q.pop();
 
 
-        cout << "Joint id: " << ptr->getid() << endl;
+        // cout << "Joint id: " << ptr->getid() << endl;
         if (ptr->getid() != 0){
 
             //Check if the world tansformation matrix is being calculated correctly. 
             // FIXME: A potential issue in the calculation could be that the adjoint of the transformation is not being calculated correctly here.
-            Eigen::VectorXd spatial_F_g = ptr->get_spatial_inertia() * transform_adjoint(ptr->get_world_transform()).inverse() * spatial_gravity;
+            // FIXME: RIGHT NOW ITS ONLY WORLD TO BASE BODY, WE NEED WORLD TO BASE BODY TO CURRENT POSITION.
+            // Eigen::VectorXd spatial_F_g = ptr->get_spatial_inertia() * transform_adjoint(ptr->get_world_transform()) * spatial_gravity;
 
-            cout << "---------------------------" << endl;
+            // Eigen::VectorXd spatial_F_g = ptr->get_spatial_inertia() * transform_adjoint((ptr->get_world_transform() *exponential_rotation_spatial(ptr->get_screw_axis(),j(ptr->getid()))  ).inverse()) * spatial_gravity;
+            Eigen::VectorXd spatial_F_g = ptr->get_spatial_inertia() * transform_adjoint(updated_world_transforms.at(ptr->getid()),true) * spatial_gravity;
 
-            cout << "World transformation: " << endl << ptr->get_world_transform() << endl << endl;
-            cout << "World transformation adjoint: " << endl << transform_adjoint(ptr->get_world_transform()) << endl << endl;
-            cout << "spatial Fg: " << endl << spatial_F_g << endl;
+            cout << "spatial Fg, joint " << ptr->getid() << ": " << endl << spatial_F_g << endl;
 
             Eigen::VectorXd spatial_F_children(6);
             spatial_F_children = Eigen::VectorXd::Zero(6);
             for (int i = 0; i < ptr->children.size(); i++){
-                spatial_F_children += loc_force.at(static_cast<jointnode*>(ptr->children[i])->getid());
-            }
 
-            cout << "Spatial force from children: " << endl << spatial_F_children << endl;
-            cout << "spatial inertia of joint: " << endl << ptr->get_spatial_inertia() << endl;
-            cout << "acceleration of joint: " << endl << loc_acc.at(ptr->getid()) << endl;
+                // ORIGINAL
+                // spatial_F_children +=  loc_force.at(static_cast<jointnode*>(ptr->children[i])->getid());
+
+
+                // TODO: Taking the adjoint of the transformation of the local transformation works... not too sure why.
+                jointnode* child = static_cast<jointnode*>(ptr->children[i]);
+                cout << child->get_local_transformation().rows() << ", " << child->get_local_transformation().cols() << endl;
+                Eigen::MatrixXd p_to_i = child->get_local_transformation() * exponential_rotation_spatial(child->get_screw_axis(),j(child->getid())) ;
+                
+                
+                cout << "child screw axis: " << child->get_screw_axis() << endl << endl;
+                cout << "Child transformation matrix :" << endl << p_to_i << endl << endl << child->get_local_transformation() << endl << endl << exponential_rotation_spatial(child->get_screw_axis(),j(child->getid())) << endl << endl ;
+
+                spatial_F_children += transform_adjoint(p_to_i,true) * loc_force.at(static_cast<jointnode*>(ptr->children[i])->getid());
+            }
 
             // Calculate the force at each joint 
             Eigen::VectorXd spatial_F = ptr->get_spatial_inertia() * loc_acc.at(ptr->getid()) + spatial_cross_product(loc_vec.at(ptr->getid()),(ptr->get_spatial_inertia()* loc_vec.at(ptr->getid()))  ,true) - spatial_F_g + spatial_F_children; 
 
-            cout << "Calculated total force: "<< endl << spatial_F << endl;
-
             loc_force.at(ptr->getid()) = spatial_F;
 
-            loc_torque.at(ptr->getid()) = ptr->get_screw_axis().transpose() * spatial_F;
+            // loc_torque.at(ptr->getid()) = ptr->get_screw_axis().transpose() * spatial_F;
+            loc_torque.at(ptr->getid()) = spatial_F.transpose() * ptr->get_screw_axis();
 
             // Add parent classes to the queue (Since this is backwards pass)
             for (int i =0; i < ptr->parents.size(); i++){
                 backward_q.push(static_cast<jointnode*>(ptr->parents[i]));
             }
 
-            cout << endl << endl;
-
         }
 
     }
-
-    cout << "Torque Calculated. Printing force and torque matricies" << endl;
-
-    cout << "Force: " << endl;
-    for (int i =0; i < loc_force.size(); i++){
-        cout << loc_force.at(i) << endl;
-    }
-    cout << endl << "Torque: " << endl;
-    for (int i =0; i < loc_torque.size(); i++){
-        cout << loc_torque.at(i) << endl;
-    }
-    cout << endl;
 
     Eigen::VectorXd out(loc_torque.size());
     out = Eigen::VectorXd::Zero(loc_torque.size());
@@ -693,6 +654,44 @@ Eigen::VectorXd robotModel::RNEA(Eigen::MatrixXd x){
 }
 
 
+// The input x matrix contains joint positions, joint velcoity, torque (u)
+// This function calculates the acceleration of the joints using Recursive Forward Dynamics algorithm. 
+Eigen::VectorXd robotModel::FNEA(Eigen::MatrixXd x){
+
+
+}
+
+
+// Returns the bodies associated with the joints in the joint tree.
+vector<int> robotModel::return_joint_bodies(){
+
+    vector<int> out (this->joint_tree_size,0);
+    
+    stack<jointnode*> dfs;
+    
+    jointnode* ptr = this->root_joint;
+    ptr->print_info();
+    for (int i =0; i < ptr->children.size(); i++){
+        dfs.push(static_cast<jointnode*>(ptr->children[i]));
+    }
+
+    while(!dfs.empty()){
+
+        ptr = dfs.top();
+        dfs.pop();
+
+        out.at(ptr->getid()) = ptr->get_attached_body()->bodyid;
+
+        for (int i =0; i < ptr->children.size(); i++){
+            dfs.push(static_cast<jointnode*>(ptr->children[i]));
+        }
+
+    }
+
+    return out;
+
+
+}
 
 
 

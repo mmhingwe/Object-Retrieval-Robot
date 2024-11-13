@@ -3,8 +3,10 @@
 #include <GLFW/glfw3.h>
 #include "pathplan.h"
 #include "controllers.h"
+#include "matplotlibcpp.h"
 #include "util.h"
 
+namespace plt = matplotlibcpp;
 using namespace std;
 
 int main(){
@@ -45,8 +47,51 @@ int main(){
     mjv_makeScene(m, &scn, 1000);
     mjr_makeContext(m, &con, mjFONTSCALE_100);
 
-    //TODO: setup mouse callbacks
+    // cout << m->opt.gravity[2] << endl;
+    // return 1;
 
+    // Setup Robot Perameters
+    m->opt.gravity[0] = 0;
+    m->opt.gravity[1] = 0;
+    m->opt.gravity[2] = -9.81;
+
+    // Setup robot control
+    PID rob_ctrl(m,d,"rrt_base");
+    rob_ctrl.set_pid(200.0,50.0,0.0);
+    Eigen::VectorXd goal(4);
+    // goal << 0,0,0,0;
+    goal << 1.0,-0.5,0,0;
+    // rob_ctrl.get_control(m,d, goal);
+
+    // Setup graphing tools.
+    vector<double> pos_x;
+    vector<double> pos_y;
+    vector<double> vel_x;
+    vector<double> vel_y;
+
+    vector<double> goal_pos_x;
+    vector<double> goal_pos_y;
+    vector<double> goal_vel_x;
+    vector<double> goal_vel_y;
+
+    vector<double> time_axis;
+
+    // Set initial information
+    // pos_x.push_back(d->qpos[0]);
+    // pos_y.push_back(d->qpos[1]);
+    // vec_x.push_back(d->qvel[0]);
+    // vec_y.push_back(d->qvel[1]);
+    // goal_pos_x.push_back(0.0);
+    // goal_pos_y.push_back(0.0);
+    // goal_vec_x.push_back(0.0);
+    // goal_vec_y.push_back(0.0);
+    // time_axis.push_back(0.0);
+
+
+
+
+    //TODO: setup mouse callbacks
+    int count = 0;
     // run main loop, target real-time simulation and 60 fps rendering
     while( !glfwWindowShouldClose(window) ) {
     // advance interactive simulation for 1/60 sec
@@ -54,8 +99,25 @@ int main(){
     //  this loop will finish on time for the next frame to be rendered at 60 fps.
     //  Otherwise add a cpu timer and exit this loop when it is time to render.
         mjtNum simstart = d->time;
+
+        pos_x.push_back(d->qpos[0]);
+        pos_y.push_back(d->qpos[1]);
+        vel_x.push_back(d->qvel[0]);
+        vel_y.push_back(d->qvel[1]);
+        goal_pos_x.push_back(0.0);
+        goal_pos_y.push_back(0.0);
+        goal_vel_x.push_back(0.0);
+        goal_vel_y.push_back(0.0);
+        time_axis.push_back(d->time);
+
+        Eigen::VectorXd torque = rob_ctrl.get_control(m,d, goal);
+        d->ctrl[0] = torque(1);
+        d->ctrl[1] = torque(2);
+
         while( d->time - simstart < 1.0/60.0 )
             mj_step(m, d);
+
+
 
         // get framebuffer viewport
         mjrRect viewport = {0, 0, 0, 0};
@@ -70,7 +132,36 @@ int main(){
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
+
+        cout << "---------------------------------------------------------------------------------------------------------------------" << endl;
+        
+        if (count == 500){
+            break;
+        }
+
+        count += 1;
+
+        // return 1;
+
     }
+
+    plt::subplot(2,2,1);
+    plt::plot(time_axis,pos_x);
+    plt::plot(time_axis,goal_pos_x);
+
+    plt::subplot(2,2,2);
+    plt::plot(time_axis,pos_y);
+    plt::plot(time_axis,goal_pos_y);
+
+    plt::subplot(2,2,3);
+    plt::plot(time_axis,vel_x);
+    plt::plot(time_axis,goal_vel_x);
+
+    plt::subplot(2,2,4);
+    plt::plot(time_axis,vel_y);
+    plt::plot(time_axis,goal_vel_y);
+
+    plt::show();
 
     // close GLFW, free visualization storage
     glfwTerminate();

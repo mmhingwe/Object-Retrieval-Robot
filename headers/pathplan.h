@@ -4,7 +4,7 @@
 #include <utility>
 #include <Eigen/Core>
 // #include "datastructures/kdtree.h"
-#include "kdtree.h"
+#include "datastructures/kdtree.h"
 
 
 // Note: The cartesian initial point and goal is converted to config space in the robot model class.
@@ -13,7 +13,7 @@
 //        Matrix of the acceleration and velocities of config space path.
 
 
-// // Make this a parent class, defne all the basics a path algo needs
+// // Make this an abstract parent class, defne all the basics a path algo needs
 class pathplan{
 
     protected:
@@ -25,7 +25,12 @@ class pathplan{
         Eigen::VectorXd goal;
         virtual void check_inputs();
     public:
+        pathplan();
         pathplan(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints, Eigen::MatrixXd space_bounds);
+        // virtual void set_perameters() = 0;
+        // virtual int run() = 0;
+        virtual void set_perameters(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints,Eigen::MatrixXd space_bounds) = 0;
+        virtual int run(double step_size, double goal_radius, int max_itt) = 0;
         virtual Eigen::MatrixXd return_path() = 0;
         virtual Eigen::MatrixXd return_path_vec() = 0;
         virtual Eigen::MatrixXd return_path_accel() = 0;
@@ -43,7 +48,7 @@ struct rrtnode : public node<Eigen::VectorXd>{
 
 
 // RRT Implementation here. Child class of the pathplan class.
-class RRT : private pathplan{
+class RRT : public pathplan{
 
     private:
         
@@ -61,8 +66,15 @@ class RRT : private pathplan{
 
     public:
         
+        // Override functions to allow for RRT to be non-abstract
+        // void set_perameters() override{}
+        // int run() override{return 0;}
+
+        // Class functions 
         RRT(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints,Eigen::MatrixXd space_bounds);
+        RRT();
         ~RRT();
+        void set_perameters(Eigen::VectorXd init, Eigen::VectorXd goal,int config_space_dim, std::vector<Eigen::MatrixXd> constraints,Eigen::MatrixXd space_bounds);
         int run(double step_size, double goal_radius, int max_itt);
         Eigen::MatrixXd return_path();
         Eigen::MatrixXd return_path_vec();

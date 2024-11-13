@@ -4,16 +4,15 @@
 #include <string>
 #include <mujoco/mujoco.h>
 #include <Eigen/Core>
-#include "node.h"
+#include "datastructures/node.h"
+
+
 
 // This class acts as a wrapper around the mjmodel class. Specifications of each
 // Robot body in relation to children and parent joints are stored 
 // The robot body holds some specifications such as the orientation, weight, inertial matrix, etc and allows for transformation calculations in the robot Model class
 // when doing forwards or backwards kinematics. The name of the body is stored in the "data" variable of the node parent class defined in node.h
-// The dimensionality of the world is defined in the constructor.
-// Assume this class has knowledge of the current velocity, acceleration and poisition of the joints. 
-
-//Contains information on the bodies of the robot
+// Contains information on the bodies of the robot
 struct bodynode : public node<int>{
     
     // The id of the body and the node which it is attached to
@@ -39,6 +38,8 @@ struct bodynode : public node<int>{
 };
 
 
+
+
 // Comparison struct for the priority queue when creating joint tree.
 struct bodynode_comp{
 
@@ -57,7 +58,6 @@ class jointnode : public node<int> {
 
         std::vector<bodynode*> attached_bodies;
         
-        
         // Dimension of world space (This is usually 3d, but I thought I should make this general just incase I want to test some things with a 2d bot.)
         int dim_world_space;
 
@@ -75,9 +75,8 @@ class jointnode : public node<int> {
         Eigen::MatrixXd spatial_inertia;
 
         
-
-
     public:
+
         jointnode(int jointid):jointid(jointid){}
         jointnode(int jointid,Eigen::VectorXd screw_axis);
         jointnode(std::vector<bodynode*> bodies);
@@ -97,16 +96,12 @@ class jointnode : public node<int> {
 
 }; 
 
+
+
+
 // This class stores the body of the robot as a tree structure and uses DFS to go through the robot model and calculate all relative and global orientations of the the points.
 // Algorithms to calculate inverse and forwards dynamics are also included to provide the controler information.
 // NOTE: This class will be initialized using the mjmodel from mujoco. Eventually the physical robot perameters should be able to be passed in. 
-// The control is the torque at each joint. For now this will be PID and only need Inverse dynamics solver. RRT finds node path to follow, robot finds theta, theta dot and theta double
-// dot for each node (Maybe initially dont worry about acceleration of the theta), take a step in that direction by calculating torques, then measure the error of the position of the robot from the
-// goal and recalculate the theta values and add the pid torque control and take another step. So u = t(calculated) + t(pid/error) apply u to robot and recalculate. Once its close enough to the node,
-// move to the next node, but this will be handled in the pid control portion of the project. PID + IK
-
-// NOTE: The body tree should be initialized before any movement to establish the base positions of each joint. 
-
 class robotModel{
 
     private:
@@ -125,14 +120,21 @@ class robotModel{
 
     // Include backwards kinematics calculator to store the theta values between steps.
     public:
-        robotModel(mjModel* model, mjData* data); //upload the mj model
+
+        robotModel(mjModel* model, mjData* data); //upload the mj model, might be different when moving to irl robot. 
+        
+        // ~robotModel(); //FIXME: Implement the destructor.
 
         // Matrix x is a 4xn matrix where n is the number of joints, 1: position, 2: velocity, 3:acceleration, 4: external forces, outputs the torque
         Eigen::VectorXd RNEA(Eigen::MatrixXd x);
+        Eigen::VectorXd FNEA(Eigen::MatrixXd x);
 
         // Forwards and Inverse kinematics calculators (used for task space to joint space conversion and vise versa.)
         std::vector<Eigen::MatrixXd> FK(Eigen::MatrixXd q);
         Eigen::VectorXd IK(int end_effector_body_id); 
+
+        // Other functions 
+        std::vector<int> return_joint_bodies();
 
         // Debugging functions
         void print_joint_tree();
@@ -141,8 +143,4 @@ class robotModel{
 };
 
 
-// TODO: Maybe create another class to do the forward and inverse dynamics / kinematics? Maybe the robotmodel handles all the dfs and everything.
-// So from rrt we get the steps we need to take, the next position, the velocity and the acceration
-// 1) Calculate current pose of the robot in configuration space using IK (we know the current position of the robot, and the goal position, get the angles and angle velcocities
-// Recall the state space of the robot is the angles and velocities of the angles. THen x_dot is the velocities and accelerations.
 

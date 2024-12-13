@@ -5,6 +5,7 @@
 #include <mujoco/mujoco.h>
 #include <Eigen/Core>
 #include "datastructures/node.h"
+#include "datastructures/eigen_extentions.h"
 
 
 
@@ -128,6 +129,7 @@ class robotModel{
         // Matrix x is a 4xn matrix where n is the number of joints, 1: position, 2: velocity, 3:acceleration, 4: external forces, outputs the torque
         Eigen::VectorXd RNEA(Eigen::MatrixXd x);
         Eigen::VectorXd FNEA(Eigen::MatrixXd x);
+        // Eigen::VectorXad FNEA_PSOPT(Eigen::MatrixXad x);
 
         // Forwards and Inverse kinematics calculators (used for task space to joint space conversion and vise versa.)
         std::vector<Eigen::MatrixXd> FK(Eigen::MatrixXd q);
@@ -135,6 +137,7 @@ class robotModel{
 
         // Other functions 
         std::vector<int> return_joint_bodies();
+        int return_joint_tree_size();
 
         // Debugging functions
         void print_joint_tree();

@@ -33,28 +33,19 @@ kdTree::~kdTree(){
 
 void kdTree::insert_node(Eigen::VectorXd point,int idx){
 
-    if (this->root == nullptr){
-
-        
+    if (this->root == nullptr){  
         this->root = new kdnode(point,nullptr);
         this->dim = point.size();
         root->idx = idx;
-        // cout << "size of point is: " << this->dim << endl;
     }
     else{
-
         int itt = 0;
         kdnode* ptr = this->root;
-
         while(true){
-
             int index = itt % this->dim;
             Eigen::VectorXd cur_point = ptr->point;
-            // cout << cur_point << endl << endl << index << endl;
             if (cur_point(index) >= point(index)){
-                // cout << "if else passed" << endl;
                 if (ptr->left == nullptr){
-                    // cout << "new node created: left" << endl;
                     kdnode* left_node = new kdnode(point,ptr);
                     ptr->left = left_node;
                     left_node->idx = idx;
@@ -63,14 +54,10 @@ void kdTree::insert_node(Eigen::VectorXd point,int idx){
                 }
                 else{
                     ptr = ptr->left;
-                    // cout << "moving left" << endl;
                 }
-
             }
             else{
-                // cout << "if else passed" << endl;
                 if (ptr->right == nullptr){
-                    // cout << "new node created: right" << endl;
                     kdnode* right_node = new kdnode(point,ptr);
                     right_node->idx = idx;
                     ptr->right = right_node;
@@ -79,17 +66,11 @@ void kdTree::insert_node(Eigen::VectorXd point,int idx){
                 }
                 else{
                     ptr = ptr->right;
-                    // cout << "moving right" << endl;
                 }
-
             }
-
             itt += 1;
-
         }
-
     }
-
 }
 
 void kdTree::populate(Eigen::MatrixXd mat){
@@ -151,13 +132,9 @@ pair<kdnode*,double> kdTree::dfs(kdnode* curr_ptr, Eigen::VectorXd point, int de
 // Use .squaredNorm() on a vector to get distance.
 //use sizeof point to see if min is found yet.
 pair<Eigen::VectorXd,int> kdTree::find_nearest(Eigen::VectorXd point){
-
-    cout << "using dfs to search" << endl;
     kdnode* ptr = this->root;
     pair<kdnode*,double> out = this->dfs(ptr,point,0);
-    cout << "out:    "<< out.first->point << "     " << out.second  << endl;
     return make_pair(out.first->point,out.first->idx);
-
 }
 
 // vector<Eigen::VectorXd> kdTree::find_k_nearest(Eigen::VectorXd point, int k, int radius){}
@@ -233,28 +210,19 @@ kdnode* kdTree::recursive_del(kdnode* subroot, Eigen::VectorXd point, int depth)
 
     if (subroot->point == point){
 
-        cout << "deleting" << endl;
-        cout << subroot->point << endl << endl << point << endl << "++++++++++++++++++++++++++++++++++++++++++++"<< endl;
-
         // If the node is a leaf node, just delete it and pass nullptr to its parent
         if ((subroot->left == nullptr) && (subroot->right == nullptr)){
             delete subroot;
             return nullptr;
         }
         else if (subroot->right != nullptr){
-
             kdnode* min_kdnode = this->return_min(subroot->right,current_dim,depth+1);
-            
             subroot->point = min_kdnode->point;
             subroot->dim = current_dim;
             subroot->idx = min_kdnode->idx;
-
             subroot->right = this->recursive_del(subroot->right,min_kdnode->point,depth + 1);
-
-
         }
         else{
-
             kdnode* min_kdnode = this->return_min(subroot->left,current_dim,depth+1);
             subroot->point = min_kdnode->point;
             subroot->dim = current_dim;
@@ -262,10 +230,8 @@ kdnode* kdTree::recursive_del(kdnode* subroot, Eigen::VectorXd point, int depth)
             subroot->right = this->recursive_del(subroot->left,min_kdnode->point,depth + 1);
             subroot->left = nullptr;
         }
-
     }
     else{
-
         if (point(current_dim) >= subroot->point(current_dim)){
             subroot->right = this->recursive_del(subroot->right, point, depth +1);
         }
@@ -280,17 +246,12 @@ kdnode* kdTree::recursive_del(kdnode* subroot, Eigen::VectorXd point, int depth)
 }
 
 void kdTree::delete_node(Eigen::VectorXd point){
-    
-    cout << "DELETING POINT:  " << point(0) << ", " << point(1) << ", " << point(2) << endl << endl;
     this->recursive_del(this->root,point,0);
 }
 
 void kdTree::reset(){
-
     queue<kdnode*> q;
-
     q.push(this->root);
-
     while (!q.empty()){
         kdnode* ptr = q.front();
         q.pop();
@@ -300,34 +261,21 @@ void kdTree::reset(){
             delete ptr;
         }
     }
-
     this->root = nullptr;
-
 }
         
 
 void kdTree::print_debug_info(){
-
     stack<kdnode*> st;
-
-    cout << "Root id: " << this->root->idx << endl;
     st.push(this->root);
-
     while (!st.empty()){
-
         kdnode* ptr = st.top();
         st.pop();
-
-        cout << "id: " << ptr->idx << "     size: " << ptr->point.size() << endl;
-        cout << "Point: " << ptr->point(0) << ", " << ptr->point(1) << ", " << ptr->point(2) << endl << endl << endl;
-
         if (ptr->left != nullptr){
             st.push(ptr->left);
         }
         if (ptr->right != nullptr){
             st.push(ptr->right);
         }
-
     }
-
 }

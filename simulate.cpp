@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 #include <mujoco/mujoco.h>
 #include <GLFW/glfw3.h>
 #include "pathplan.h"
@@ -11,9 +12,12 @@ using namespace std;
 
 int main(){
 
+    // Get the directory path of the file
+    string file = __FILE__;
+    string fullpath = file.substr(0,file.find_last_of("/\\"));
+    
     // Load the model of the robot and the mjdata
-    // string model_filename = "/home/mhingwe/codebases/tennis_trajectory_extraction-main/mujoco/robots/omni.xml";
-    string model_filename = "/home/mhingwe/Documents/Robot_Projects/mujoco_test/universal_robots_ur10e/scene.xml";
+    string model_filename = fullpath + "/universal_robots_ur10e/scene.xml";
     mjModel* m;
     mjData* d;
     char error[1000] = "Could not load model";
@@ -57,10 +61,10 @@ int main(){
 
     // Setup robot control
     PID rob_ctrl(m,d,"rrt_base");
-    rob_ctrl.set_pid(200.0,50.0,0.0);
+    rob_ctrl.set_pid(100.0,70.0,0.0);
     Eigen::VectorXd goal(4);
     // goal << 0,0,0,0;
-    goal << 1.0,-0.5,0,0;
+    goal << 1.0,-1.5,0,0;
     // rob_ctrl.get_control(m,d, goal);
 
     // Setup graphing tools.
@@ -87,8 +91,10 @@ int main(){
     // goal_vec_y.push_back(0.0);
     // time_axis.push_back(0.0);
 
-
-
+    // test MPC control
+    MPC test_ctrl(m,d,"rrt_base");
+    test_ctrl.get_control(m,d,goal,10,1);
+    // return -1;
 
     //TODO: setup mouse callbacks
     int count = 0;
@@ -110,14 +116,12 @@ int main(){
         goal_vel_y.push_back(0.0);
         time_axis.push_back(d->time);
 
-        Eigen::VectorXd torque = rob_ctrl.get_control(m,d, goal);
-        d->ctrl[0] = torque(1);
-        d->ctrl[1] = torque(2);
+        Eigen::VectorXd torque = test_ctrl.get_control(m,d, goal,1,0.5);
+        d->ctrl[0] = torque(0);
+        d->ctrl[1] = torque(1);
 
         while( d->time - simstart < 1.0/60.0 )
             mj_step(m, d);
-
-
 
         // get framebuffer viewport
         mjrRect viewport = {0, 0, 0, 0};
@@ -132,8 +136,6 @@ int main(){
 
         // process pending GUI events, call GLFW callbacks
         glfwPollEvents();
-
-        cout << "---------------------------------------------------------------------------------------------------------------------" << endl;
         
         if (count == 500){
             break;

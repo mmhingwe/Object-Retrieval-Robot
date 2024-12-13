@@ -7,11 +7,15 @@ project(Object-Retrieval-Robot VERSION 1.0)
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS Development NumPy REQUIRED)
 find_package (Eigen3 3.4 REQUIRED NO_MODULE)
+# find_package (Eigen3 3.4 REQUIRED NO_MODULE)
+# find_package(adloc REQUIRED)
+    
 
 # Add external dependency paths
 set(MUJOCO_PATH "~/codebases/mujoco_build")
 set(EIGEN_PATH "~/codebases/eigen")
 set(MATPLOTLIB_PATH "~/codebases/matplotlib-cpp-master")
+set(NLOPT_PATH "/usr/local/include")
 # set(MUJOCO_PATH_LIB "~/codebases/mujoco/build/lib")
 # find_package(mujoco REQUIRED PATHS ${MUJOCO_PATH})
 
@@ -22,6 +26,8 @@ add_executable(simulate simulate.cpp ${SRC_FILES})
 include_directories(include ${MATPLOTLIB_PATH})
 include_directories(include ${MUJOCO_PATH}/include)
 include_directories(include ${EIGEN_PATH})
+include_directories(include ${NLOPT_PATHO})
+include_directories(include "universal_robots_ur10e/")
 target_include_directories(simulate PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/headers)
 
 target_link_libraries(
@@ -31,6 +37,8 @@ ${MUJOCO_PATH}/lib/libmujoco.so.3.2.0
 glfw
 Eigen3::Eigen
 python3.10 # Link python 3.10 for matplotlib
+/usr/local/lib/libnlopt.so
+/usr/local/lib/libnlopt.so.0
 )
 
 # Pathplan class test executable
@@ -42,6 +50,8 @@ target_link_libraries(
 test_path_plan
 Eigen3::Eigen
 python3.10 # Link python 3.10 for matplotlib
+/usr/local/lib/libnlopt.so
+/usr/local/lib/libnlopt.so.0
 )
 
 # Robot model class test executable
@@ -55,4 +65,6 @@ ${MUJOCO_PATH}/lib/libmujoco.so
 ${MUJOCO_PATH}/lib/libmujoco.so.3.2.0
 glfw
 Eigen3::Eigen
+/usr/local/lib/libnlopt.so
+/usr/local/lib/libnlopt.so.0
 )

@@ -29,7 +29,6 @@ Eigen::VectorXd hamilton_product(Eigen::VectorXd q1, Eigen::VectorXd q2){
     return out;
 }
 
-
 // Convert quaternions into 3d rotation matrix
 // NOTE: The output is sometimes off by a very small number, probably due to using doubles. 
 Eigen::MatrixXd quat_to_rmat(Eigen::VectorXd q){
@@ -104,8 +103,6 @@ Eigen::MatrixXd transform_adjoint(Eigen::MatrixXd input, bool star){
     P = input({0,1,2},3);
     P_skew = vector_to_skew(P);
 
-    // out << R, Eigen::MatrixXd::Zero(3,3), P_skew*R, R;
-
     if (!star){
         out << R, Eigen::MatrixXd::Zero(3,3), P_skew*R, R;
         return out;
@@ -113,7 +110,6 @@ Eigen::MatrixXd transform_adjoint(Eigen::MatrixXd input, bool star){
     else{
         out << R, P_skew*R, Eigen::MatrixXd::Zero(3,3),R;
         return out;
-        // return out.inverse().transpose();
     }
 
 }
@@ -157,13 +153,6 @@ Eigen::VectorXd spatial_cross_product(Eigen::VectorXd input1, Eigen::VectorXd in
 
 Eigen::MatrixXd exponential_rotation_spatial(Eigen::VectorXd screw, double theta){
 
-    // Eigen::MatrixXd out (6,6);
-    // out = Eigen::MatrixXd::Identity(6,6);
-    // Eigen::MatrixXd adjoint = spatial_adjoint(screw);
-    // out += (adjoint * sin(theta)) + ((adjoint*adjoint)*(1-cos(theta)));
-    // return out;
-    
-
     Eigen::MatrixXd out (4,4);
     out = Eigen::MatrixXd::Identity(4,4);
     
@@ -172,16 +161,116 @@ Eigen::MatrixXd exponential_rotation_spatial(Eigen::VectorXd screw, double theta
 
     Eigen::MatrixXd skew_ang = vector_to_skew(ang_vel);
     Eigen::MatrixXd mat_exp = Eigen::MatrixXd::Identity(3,3)+ (skew_ang * sin(theta)) + ((skew_ang * skew_ang) * (1-cos(theta)));
-    // Eigen::MatrixXd p = lin_vel * theta + ((skew_ang * lin_vel) * (1-cos(theta)));
     Eigen::MatrixXd p = (Eigen::MatrixXd::Identity(3,3) - mat_exp) * lin_vel + (mat_exp*mat_exp.transpose()) * lin_vel*theta;
-    cout << p.rows() << ", " << p.cols() << endl;
-
-    out << mat_exp, p, Eigen::MatrixXd::Zero(1,3), 1;
-
-    // cout << "exp mat debug: " << endl;
-    // cout << out << endl;
-
+ 
     return out;
 
-
 }
+
+
+// // The following functions convert double matrix into adouble
+// // Converts MatrixXd into an MatrixXad (adouble for automatic differentiation)
+// Eigen::MatrixXad Matrix_dtad(Eigen::MatrixXd x){
+//     Eigen::MatrixXad out(x.rows(),x.cols());
+//     for (int i =0; i < x.rows(); i++){
+//         for (int j = 0; j < x.cols(); j++){
+//             out(i,j) = x(i,j);
+//         }
+//     }
+//     return out;
+// }
+
+// Eigen::VectorXad Vector_dtad(Eigen::VectorXd x){
+//     Eigen::VectorXad out(x.size());
+//     for (int i =0; i < x.size(); i++){
+//        out(i) = x(i);
+//     }
+//     return out;
+// }
+
+
+// // The following functions are the same as the above matrix manipulation functions except they deal with the adouble scalar type;
+
+// // Convert a 3d vector into a skew symmetric matrix for the adouble matrix type
+// Eigen::MatrixXad vector_to_skew_adouble(Eigen::VectorXad input){
+//     Eigen::MatrixXad out(3,3);
+//     out << 0, -input(2), input(1),
+//            input(2), 0, -input(0),
+//            -input(1), input(0), 0;
+//     return out;
+// }
+
+// // Takes the adjoint of a transformation matrix for the adouble matrix type
+// Eigen::MatrixXad transform_adjoint_adouble(Eigen::MatrixXad input, bool star){
+//     Eigen::MatrixXad out(6,6);
+//     Eigen::MatrixXad R;
+//     Eigen::VectorXad P;
+//     Eigen::MatrixXad P_skew;
+
+//     // Get the rotation portion from the transformation matrix
+//     R = input({0,1,2},{0,1,2});
+//     P = input({0,1,2},3);
+//     P_skew = vector_to_skew_adouble(P);
+
+//     if (!star){
+//         out << R, Eigen::MatrixXad::Zero(3,3), P_skew*R, R;
+//         return out;
+//     }
+//     else{
+//         out << R, P_skew*R, Eigen::MatrixXad::Zero(3,3),R;
+//         return out;
+//     }
+// }
+
+// // Returns the adjoint matrix of a spatrial vector for the adouble matrix type
+// Eigen::MatrixXad spatial_adjoint_adouble(Eigen::VectorXad input){
+//     Eigen::MatrixXad out (6,6);
+//     out << vector_to_skew_adouble(input({0,1,2})), Eigen::MatrixXad::Zero(3,3), vector_to_skew_adouble(input({3,4,5})), vector_to_skew_adouble(input({0,1,2}));
+//     return out;
+// }
+
+// // Returns the spatial cross product of two spatial vectors for the adouble matrix type
+// Eigen::VectorXad spatial_cross_product_adouble(Eigen::VectorXad input1, Eigen::VectorXad input2, bool star){
+//         //spatial cross product
+//     if (!star){
+//         Eigen::VectorXad out;
+//         out = spatial_adjoint_adouble(input1) * input2;
+//         return out;
+//     }
+//     // Wrench cross product
+//     else{
+
+//         //TODO: Make this spatial less expensive.
+//         Eigen::VectorXad out(6);
+//         Eigen::VectorXad w(3);
+//         Eigen::VectorXad v(3);
+//         Eigen::VectorXad t(3);
+//         Eigen::VectorXad f(3);
+//         w = input1({0,1,2});
+//         v = input1({3,4,5});
+//         t = input2({0,1,2});
+//         f = input2({3,4,5});
+
+//         out({0,1,2}) = (vector_to_skew_adouble(w) * t )+ (vector_to_skew_adouble(v)*f);
+//         out({3,4,5}) = vector_to_skew_adouble(w) * f;
+
+//         return out;
+
+//     }
+// }
+
+// Eigen::MatrixXad exponential_rotation_spatial_adouble(Eigen::VectorXad screw, adouble theta){
+
+//     Eigen::MatrixXad out (4,4);
+//     out = Eigen::MatrixXad::Identity(4,4);
+    
+//     Eigen::VectorXad ang_vel = screw({0,1,2});
+//     Eigen::VectorXad lin_vel = screw({3,4,5});
+
+//     Eigen::MatrixXad skew_ang = vector_to_skew_adouble(ang_vel);
+//     Eigen::MatrixXad mat_exp = Eigen::MatrixXad::Identity(3,3)+ (skew_ang * sin(theta)) + ((skew_ang * skew_ang) * (1-cos(theta)));
+//     Eigen::MatrixXad p = (Eigen::MatrixXad::Identity(3,3) - mat_exp) * lin_vel + (mat_exp*mat_exp.transpose()) * lin_vel*theta;
+ 
+//     return out;
+
+// }

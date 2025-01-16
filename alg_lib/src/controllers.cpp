@@ -20,6 +20,7 @@ global_RRT_control::global_RRT_control(mjModel* m, mjData* d,std::string planner
     this->associated_joint_bodies = this->model->return_joint_bodies();
     this->saved_path = Eigen::MatrixXd::Zero(1,1);
     this->path_found = false;
+    this->deleted_kdnodes = 0;
 
     //find constraints for the model to be used for path planning
 
@@ -86,9 +87,15 @@ global_RRT_control::global_RRT_control(mjModel* m, mjData* d,std::string planner
 
 // FIXME: Implement way to change the rrt learning rate and step size
 // Find the path using the specified path planning algorithm. The space bounds and constraints should be specified earlier.
-void global_RRT_control::find_path(Eigen::VectorXd init, Eigen::VectorXd goal){
+void global_RRT_control::find_path(Eigen::VectorXd init, Eigen::VectorXd goal){ //,vector<Eigen::MatrixXd> input_constraints == NULL){
     
+    this->kdtree.reset();
+
     vector<Eigen::MatrixXd> buffer_constraints; //FIXME: Temporary no constraints, implement null constraints of this case in the constructor
+
+    // if (input_constraints != NULL ){
+    //     buffer_constraints = input_constraints;
+    // }
 
     this->planner->set_perameters(init,goal,this->config_space, buffer_constraints, this->space_bounds);
     int success = this->planner->run(0.5,0.5,100000);
@@ -102,13 +109,31 @@ void global_RRT_control::find_path(Eigen::VectorXd init, Eigen::VectorXd goal){
 pair<Eigen::VectorXd,int> global_RRT_control::find_next_point(Eigen::VectorXd init){
 
     pair<Eigen::VectorXd,int> nearest_point = this->kdtree.find_nearest(init);
+    cout << "FOUND NEAREST" << endl;
     Eigen::ArrayXi allidx = Eigen::ArrayXi::LinSpaced(nearest_point.first.size(),0,(nearest_point.first.size())-1);
 
-    //TODO: HAndle case where you are at the goal position. For now, just output a message.
-    if (nearest_point.second == (this->saved_path.rows()-1)){
+    // nearest found point
+    cout << "NEAREST FOUND POINT" << endl;
+    for (int i = 0; i < nearest_point.first.size(); i++){
+        cout << nearest_point.first(i) << " ";
+    }
+    cout << endl;
+    Eigen::VectorXd buf = this->saved_path(this->saved_path.rows()-1,allidx);
+    cout << "Goal POINT" << endl;
+    for (int i = 0; i < buf.size(); i++){
+        cout << buf(i) << " ";
+    }
+    cout << endl;
+
+
+    // TODO: HAndle case where you are at the goal position. For now, just output a message.
+    if (nearest_point.first == buf){
+        cout << "goal point reached: " << nearest_point.second << endl;
+        // return make_pair(this->saved_path(nearest_point.second,allidx),nearest_point.second);
         return make_pair(this->saved_path(nearest_point.second,allidx),nearest_point.second);
     }
     else{
+        cout << "getting next point: " << endl;
         return make_pair(this->saved_path(nearest_point.second + 1,allidx),nearest_point.second+1);
     }
 
@@ -436,7 +461,7 @@ Eigen::VectorXd MPC::optimize(Eigen::VectorXd init, Eigen::VectorXd goal,double 
     }
 
     nlopt_set_min_objective(opt,this->cost_function,NULL);
-    nlopt_set_xtol_rel(opt,1e-4);
+    nlopt_set_xtol_rel(opt,1e-2);
 
     //set initial conditions
     double x[state_dim];
@@ -521,27 +546,34 @@ Eigen::VectorXd MPC::get_control(Eigen::VectorXd init, Eigen::VectorXd goal, dou
     Eigen::ArrayXi allidx = Eigen::ArrayXi::LinSpaced(this->num_jnt*2,0,(this->num_jnt*2)-1);
     Eigen::ArrayXi pos_idx = Eigen::ArrayXi::LinSpaced(this->num_jnt,0,(this->num_jnt - 1));
     Eigen::ArrayXi vel_idx = Eigen::ArrayXi::LinSpaced(this->num_jnt,this->num_jnt,(this->num_jnt*2)-1);
-    
+
     // Uncomment to follow trajectory
-    if (!this->path_found){ 
-        this->find_path(init,goal);
+    if ((!this->path_found) || (this->curr_goal != goal)){ 
+        cout << "path is generating" << endl;
+        this->find_path(init,goal); //FIXME: Will need to possible include constraints here. Controller should keep track of data taken aquired from the sensor node and update the constraints. 
         nextpt_pair = make_pair(this->saved_path(1,allidx),1);
         this->path_found = true;
         this->kdtree.print_debug_info();
+        this->curr_goal = goal;
+        this->deleted_kdnodes = 0;
     }
     else{
+        cout << "getting point from tree" << endl;
         this->kdtree.print_debug_info();
         nextpt_pair = this->find_next_point(init);
     }
     
-    // FIXME: Possibly getting caught up trying to match one point. Make it so that it chooses a point somewhere outside the vicinity of this one.
-    // RIght now its just osilating between two points... Maybe remove a point from the kd tree once its close enough?!?!
-    //FIXME: Use the find in the kdtree to get the index of that point, then delete all indicies below that from the kd tree so if the index is 14, remove 
-    // points at index 0-14 from the kd tree;
-    for (int i = 0; i < nextpt_pair.second; i++){ //FIXME: FOr some reason this is causing a segmentation fault. Firgure out why.
+    for (int i = this->deleted_kdnodes; i < nextpt_pair.second; i++){ 
+        cout << "deleting node: " << i << endl;
         this->kdtree.delete_node(this->saved_path(i,allidx));
     }
+    this->deleted_kdnodes += nextpt_pair.second - this->deleted_kdnodes;
     Eigen::VectorXd nextpt = nextpt_pair.first;
+    cout << "( ";
+    for (int i = 0; i < 4; i++){
+        cout << nextpt(i) << " ";
+    }
+    cout << ")" << endl;
 
 
     // STEP 3: Begin optimization to find the trajectory for the next N seconds and resturn one step in that direction

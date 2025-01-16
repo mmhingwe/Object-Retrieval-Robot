@@ -18,11 +18,12 @@ kdnode::kdnode(Eigen::VectorXd init,kdnode* parent){
 }
 
 // Function definitions for kd tree datastructure.
-kdTree::kdTree():root(nullptr),dim(0){}
+kdTree::kdTree():root(nullptr),dim(0),size(0){}
 
 
 kdTree::kdTree(Eigen::VectorXd init){
     this->root = new kdnode(init, nullptr);
+    this->size = 1;
     this->dim = init.size();
 }
 
@@ -32,6 +33,8 @@ kdTree::~kdTree(){
 }
 
 void kdTree::insert_node(Eigen::VectorXd point,int idx){
+
+    this->size += 1;
 
     if (this->root == nullptr){  
         this->root = new kdnode(point,nullptr);
@@ -133,6 +136,12 @@ pair<kdnode*,double> kdTree::dfs(kdnode* curr_ptr, Eigen::VectorXd point, int de
 //use sizeof point to see if min is found yet.
 pair<Eigen::VectorXd,int> kdTree::find_nearest(Eigen::VectorXd point){
     kdnode* ptr = this->root;
+    cout << "Size of tree: " << this->size << endl;
+    if (this->size == 1){
+        cout << "SIZE OF TREE IS 1" << endl;
+        return make_pair(this->root->point,0);
+    }
+
     pair<kdnode*,double> out = this->dfs(ptr,point,0);
     return make_pair(out.first->point,out.first->idx);
 }
@@ -213,6 +222,7 @@ kdnode* kdTree::recursive_del(kdnode* subroot, Eigen::VectorXd point, int depth)
         // If the node is a leaf node, just delete it and pass nullptr to its parent
         if ((subroot->left == nullptr) && (subroot->right == nullptr)){
             delete subroot;
+            this->size -= 1;
             return nullptr;
         }
         else if (subroot->right != nullptr){
@@ -278,4 +288,8 @@ void kdTree::print_debug_info(){
             st.push(ptr->right);
         }
     }
+}
+
+int kdTree::return_size(){
+    return this->size;
 }

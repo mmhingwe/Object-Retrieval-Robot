@@ -288,6 +288,7 @@ void robotModel::setup_joint_tree(){
         for (int i = 0; i < ptr->children.size(); i++){
             bfsq.push(static_cast<jointnode*>(ptr->children[i]));
         }
+        this->joint_transforms[ptr->getid()] = ptr->get_world_transform();
     }
 
     this->joint_tree_size = tree_size;
@@ -369,7 +370,6 @@ robotModel::robotModel(mjModel* model, mjData* data){
     for (int j = 0; j < body_to_joint_map.size(); j++){
         cout << "Body id: " << j << "   Joint id: " << body_to_joint_map[j] << endl;
     }
-
 
     // Modified dfs to create joint nodes used for the kinematic and dynamic solvers.
     // Do dfs through body, if joint is detected, go through queue in order of joint (so if at joint 0 and one child has joint one, the other has joint 0, )
@@ -456,6 +456,8 @@ robotModel::robotModel(mjModel* model, mjData* data){
         
     }
     
+    // Create array to hold default transformation matricies of all joints.
+    this->joint_transforms = vector<Eigen::MatrixXd>(model->njnt,Eigen::MatrixXd::Identity(4,4));
 
     // Calculate the inertia and transform for all the joints relative to eachother.
     this->setup_joint_tree();
@@ -889,6 +891,90 @@ Eigen::VectorXd robotModel::FNEA(Eigen::MatrixXd x){
 //     return out_acc;
 
 // }
+
+// Forward kinematics, converts from configuration space into task space position of every joint.
+// Vector of Eigen matricies representing the transformation matrix of each joint.
+std::vector<Eigen::MatrixXd> robotModel::FK(Eigen::MatrixXd q){
+    
+    //    _
+    // If S has not been caclulatd yet, calculate the matricies.
+    if (this->screw_axis_hat.size() == 0){
+        for (int i = 0; i < this->joint_screw_axis.size(); i++){
+            cout << this->joint_screw_axis[i](0) << " " << this->joint_screw_axis[i](1) << " " << this->joint_screw_axis[i](2) << " " << this->joint_screw_axis[i](3) << " " << this->joint_screw_axis[i](4) << " " << this->joint_screw_axis[i](5) << endl; 
+            this->screw_axis_hat.push_back(transform_adjoint(this->joint_transforms[i]) * this->joint_screw_axis[i]);
+        }
+    }
+
+    vector<Eigen::MatrixXd> out (this->joint_tree_size,Eigen::MatrixXd::Identity(4,4));
+    vector<Eigen::MatrixXd> exp_rot;
+
+    cout << "exponential matrix calculations" << endl;
+
+    for (int i = 0; i < this->screw_axis_hat.size(); i++){
+        cout << endl << q(i) << endl << endl;
+        exp_rot.push_back(exponential_rotation_spatial(this->screw_axis_hat[i],q(i)));
+        Eigen::MatrixXd test = exponential_rotation_spatial(this->joint_screw_axis[i],q(i));
+        // exp_rot.push_back(exponential_rotation_spatial(this->joint_screw_axis[i],q(i)));
+
+        for (int j = 0; j < test.rows(); j++){
+
+            for (int k = 0; k < test.cols(); k++ ){
+
+                cout << test(j,k) << " ";
+
+            }
+
+            cout << endl;
+
+        }
+
+    }
+
+    cout << "forward kinematics joint transforms " << endl;
+
+    // print base transformations
+    for (int i = 0; i < exp_rot.size(); i++){
+        // cout << test_out[i](0,3) << " " << test_out[i](1,3) << " " << test_out[2](2,3) << endl;
+
+        for (int j = 0; j < exp_rot[i].rows(); j++){
+
+            for (int k = 0; k < exp_rot[i].cols(); k++ ){
+
+                cout << exp_rot[i](j,k) << " ";
+
+            }
+
+            cout << endl;
+
+        }
+
+        cout << endl; 
+
+    }
+
+
+    stack<jointnode*> dfs;
+    jointnode* ptr = this->root_joint;
+    dfs.push(this->root_joint);
+    // for (int i =0; i < ptr->children.size(); i++){
+    //     dfs.push(static_cast<jointnode*>(ptr->children[i]));
+    // }
+    while(!dfs.empty()){
+        ptr = dfs.top();
+        dfs.pop();
+        
+        out[ptr->getid()] = out[ptr->getid()] * ptr->get_world_transform();
+
+        for (int i =0; i < ptr->children.size(); i++){
+            jointnode* child = static_cast<jointnode*>(ptr->children[i]);
+            out[child->getid()] = out[child->getid()] * exp_rot[ptr->getid()];
+            dfs.push(child);
+        }
+    }
+
+    return out;
+
+}
 
 
 // Returns the bodies associated with the joints in the joint tree.

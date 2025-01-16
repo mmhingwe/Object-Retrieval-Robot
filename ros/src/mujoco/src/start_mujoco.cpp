@@ -12,6 +12,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "messages/msg/userinput.hpp"
 #include "messages/srv/ctrlsrv.hpp"
+#include "messages/msg/sensormsg.hpp"
 
 // using namespace std::chrono_literals;
 using namespace std;
@@ -44,7 +45,12 @@ class MuJoCoControl : public rclcpp::Node
 
       // Client to get ctrl from the ctrl service 
       ctrl_client = this->create_client<::messages::srv::Ctrlsrv>("get_ctrl");
+
+      // Create sensor data publisher
+      publish_sensor_data = this->create_publisher<::messages::msg::Sensormsg>("sensor_data", 10);
     
+      this->goal_state = vector<double>(4,0.0); // FIXME: This only works for the 2DOF robot arm example. This is just a quick fix to the initial state problem just to make sure everything else works.
+
     }
 
     // Destructor
@@ -56,6 +62,18 @@ class MuJoCoControl : public rclcpp::Node
       if(data != nullptr){
         mj_deleteData(data);
       }
+
+      if (start_flag == true){
+
+        if (this->simulation_thread.joinable()){
+            this->simulation_thread.join();
+        }
+        if (this->sensor_thread.joinable()){
+          this->sensor_thread.join();
+        }
+
+      }
+
     }
 
   private:
@@ -64,6 +82,7 @@ class MuJoCoControl : public rclcpp::Node
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publish_file; // TODO: Need to change the message type based on the info sent to the control node.
     rclcpp::Subscription<::messages::msg::Userinput>::SharedPtr subscribe_user;
     rclcpp::Client<::messages::srv::Ctrlsrv>::SharedPtr ctrl_client;
+    rclcpp::Publisher<::messages::msg::Sensormsg>::SharedPtr publish_sensor_data;
 
     // MuJoCo world and state pointers
     bool start_flag;
@@ -76,6 +95,7 @@ class MuJoCoControl : public rclcpp::Node
 
     // Variables to control threat for simulation window
     thread simulation_thread;
+    thread sensor_thread;
     atomic<bool> threadFlag;
 
     // Simulates the mujoco environment as a seperate thread
@@ -101,33 +121,8 @@ class MuJoCoControl : public rclcpp::Node
       mjr_defaultContext(&con);
 
       // create scene and context
-      mjv_makeScene(this->model, &scn, 1000);
+      mjv_makeScene(this->model, &scn, this->model->ngeom + 100);
       mjr_makeContext(this->model, &con, mjFONTSCALE_100);
-
-
-
-      // auto request = std::make_shared<example_interfaces::srv::AddTwoInts::Request>();
-      // request->a = atoll(argv[1]);
-      // request->b = atoll(argv[2]);
-
-      // while (!client->wait_for_service(1s)) {
-      //   if (!rclcpp::ok()) {
-      //     RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
-      //     return 0;
-      //   }
-      //   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
-      // }
-
-      // auto result = client->async_send_request(request);
-      // // Wait for the result.
-      // if (rclcpp::spin_until_future_complete(node, result) ==
-      //   rclcpp::FutureReturnCode::SUCCESS)
-      // {
-      //   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Sum: %ld", result.get()->sum);
-      // } else {
-      //   RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service add_two_ints");
-      // }
-      // this->ctrl_client
 
 
       while( !glfwWindowShouldClose(window) ) {
@@ -135,49 +130,52 @@ class MuJoCoControl : public rclcpp::Node
       //  Assuming MuJoCo can simulate faster than real-time, which it usually can,
       //  this loop will finish on time for the next frame to be rendered at 60 fps.
       //  Otherwise add a cpu timer and exit this loop when it is time to render.
+        
           mjtNum simstart = this->data->time;
 
-          //ctrl is double*
+          // Create request message to send to the control service 
           auto request = std::make_shared<::messages::srv::Ctrlsrv::Request>();
           request->type = "MPC";
-          request->time = 10.0;
-          request->samples = 1.0;
+          request->time = 1.0;
+          request->samples = 0.5;
           request->goal = this->goal_state;
-          //caclualte current state 
-          // Eigen::VectorXd init(this->model->njnt*2);
-          // init = Eigen::VectorXd::Zero(this->model->njnt*2);
-          vector<double> curr_state(this->model->njnt,0);
+          vector<double> curr_state(2*this->model->njnt,0);
           for (int i =0; i < this->model->njnt; i++){
               curr_state[i] = this->data->qpos[i];
               curr_state[this->model->njnt+i] = this->data->qvel[i];
           }
           request->state = curr_state;
 
-          while (!this->ctrl_client->wait_for_service(1s)) {
-            if (!rclcpp::ok()) {
-              RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted while waiting for the service. Exiting.");
-            }
-            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "service not available, waiting again...");
-          }
-
+          // Send control request and await the response.
           auto result = ctrl_client->async_send_request(request);
-          // Wait for the result.
-          if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
-            rclcpp::FutureReturnCode::SUCCESS)
-          {
-            RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Got it");
-          } else {
-            RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to call service");
+        
+          while (result.wait_for(1s) != std::future_status::ready) {
+            if (!rclcpp::ok()) {
+                RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Interrupted.");
+                return;
+            }
+            // RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Waiting for control response...");
+            if (this->threadFlag == false){
+              break;
+            }
           }
 
-          // FIXME: THIS CTRL ONLY WORKS FOR THE TWO JOINT SYSTEM.
+          // exit thread gracefully
+          if (this->threadFlag == false){
+            break;
+          }
+
+
+          // Set the control values aquired from the control calculation node
           vector<double> out = result.get()->ctrl;
+          for (int i =0; i < this->model->nu; i++){
+            this->data->ctrl[i] = out[i];
+          }
 
-          this->data->ctrl[0] = out[0];
-          this->data->ctrl[1] = out[1];
 
-          while( this->data->time - simstart < 1.0/60.0 )
-              mj_step(this->model, this->data);
+          // while( this->data->time - simstart < 1.0/60.0 ){
+          mj_step(this->model, this->data);
+          // }
 
           // get framebuffer viewport
           mjrRect viewport = {0, 0, 0, 0};
@@ -193,6 +191,7 @@ class MuJoCoControl : public rclcpp::Node
           // process pending GUI events, call GLFW callbacks
           glfwPollEvents();
 
+          // Exit gracefully from the thread
           if (this->threadFlag == false){
             break;
           }
@@ -207,6 +206,31 @@ class MuJoCoControl : public rclcpp::Node
 
     }
 
+    void transmit_sensor_data(){
+
+      int sensor_id = mj_name2id(this->model, mjOBJ_SENSOR, "lidar_sensor");
+
+      int sensor_addr = this->model->sensor_adr[sensor_id];
+      // int sensor_dim = this->model->sensor_dim[sensor_id];
+
+
+      while (this->threadFlag){
+
+        int sensor_dim = this->model->sensor_dim[sensor_id];
+
+        cout << "Transmitting sensor data: " << endl;
+        for (int i = 0; i < sensor_dim; i++){
+          cout << data->sensordata[sensor_addr+i] << " ";
+        }
+        cout << endl;
+        std::this_thread::sleep_for(10ms);
+
+
+      }
+
+
+    
+    }
 
     // Handles the users feelback from the user_input node
     void user_callback(const ::messages::msg::Userinput & msg)
@@ -224,12 +248,12 @@ class MuJoCoControl : public rclcpp::Node
             mju_error_s("Loading model error: %s", error);
         }
         data = mj_makeData(model);
-
         cout << "Model created Successfully" << endl;
         
         // Start simulation in another thread
         threadFlag = true;
         this->simulation_thread = thread(&MuJoCoControl::simulate, this);
+        this->sensor_thread = thread(&MuJoCoControl::transmit_sensor_data, this);
         cout << "thread started" << endl;
 
         //Pass the file to the control node
@@ -246,6 +270,9 @@ class MuJoCoControl : public rclcpp::Node
           if (this->simulation_thread.joinable()){
             this->simulation_thread.join();
           }
+          if (this->sensor_thread.joinable()){
+            this->sensor_thread.join();
+          }
           cout << "Simulation thread stopped" << endl;
           
           start_flag = 0;
@@ -259,13 +286,12 @@ class MuJoCoControl : public rclcpp::Node
       else if (msg.command == 2){
 
         vector<double> data = msg.data;
-        cout << "We must move to:  (";
+        cout << "Moving to:  (";
         
         for (int i = 0; i < data.size(); i++){
           cout << data[i] << " ";
         }
         cout << ")" << endl;
-
         this->goal_state = msg.data;
 
       }
@@ -282,7 +308,14 @@ int main(int argc, char * argv[])
 {
   std::signal(SIGINT, signalHandler); //Handle ctrl + c
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<MuJoCoControl>());
+
+  auto node = std::make_shared<MuJoCoControl>();
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+
+  // rclcpp::spin(std::make_shared<MuJoCoControl>());
+  executor.spin();
+
   rclcpp::shutdown();
   return 0;
 }

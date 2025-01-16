@@ -106,11 +106,15 @@ class jointnode : public node<int> {
 class robotModel{
 
     private:
-        std::vector<Eigen::MatrixXd> joint_transforms;
+        
         int joint_tree_size;
         jointnode* root_joint;
         bodynode* root_body;
+
+        // Stores the joint screw axis and transforms in vector format for convinience when doing kinematic and dynamics calculations.
         std::vector<Eigen::VectorXd> joint_screw_axis;
+        std::vector<Eigen::MatrixXd> joint_transforms;
+        std::vector<Eigen::MatrixXd> screw_axis_hat;
 
         Eigen::MatrixXd joint_relation;
 
@@ -134,6 +138,10 @@ class robotModel{
         // Forwards and Inverse kinematics calculators (used for task space to joint space conversion and vise versa.)
         std::vector<Eigen::MatrixXd> FK(Eigen::MatrixXd q);
         Eigen::VectorXd IK(int end_effector_body_id); 
+
+        // Checks for collisions using octtree
+        //TODO: Implement octtree and take in potential node data from the path planner (ptr to this class given) and then call the function to check if 
+        // There is a collision present.
 
         // Other functions 
         std::vector<int> return_joint_bodies();

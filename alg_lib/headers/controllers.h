@@ -45,6 +45,9 @@ class global_RRT_control {
         bool path_found;
         std::vector<int> associated_joint_bodies;
 
+        // Variables to help speed up point search
+        int deleted_kdnodes;
+
     public:
 
         global_RRT_control(mjModel* m, mjData* d,std::string planner_type);
@@ -140,6 +143,8 @@ class MPC : global_RRT_control{
 
         // run optimization function using PSOPT
         Eigen::VectorXd optimize(Eigen::VectorXd init, Eigen::VectorXd goal, double T, double N);
+
+        Eigen::VectorXd curr_goal;
 
         // Other variables
         int num_jnt;

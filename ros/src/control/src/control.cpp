@@ -46,6 +46,9 @@ class control_node : public rclcpp::Node
     PID* pid_ctrl;
     MPC* mpc_ctrl; //TODO: For now, everything will be calculated using the MPC controller, In the future allow the user to chosse what tpye of controler
 
+    // Sensor data
+    vector<Eigen::MatrixXd> constraints;
+
 
     void calculate_ctrl(const std::shared_ptr<::messages::srv::Ctrlsrv::Request> request,
         std::shared_ptr<::messages::srv::Ctrlsrv::Response>   response){
@@ -69,6 +72,7 @@ class control_node : public rclcpp::Node
                 goal_input(i) = goal[i];
             }
 
+
             Eigen::VectorXd ctrl = this->pid_ctrl->get_control(init_input,goal_input);
 
             vector<double> out;
@@ -77,28 +81,54 @@ class control_node : public rclcpp::Node
                 out.push_back(ctrl(i));
             }
 
+
             response->ctrl = out;
 
         }
         else{
 
-            if (this->pid_ctrl == nullptr){
+            if (this->mpc_ctrl == nullptr){
                 mpc_ctrl = new MPC(this->model,this->data,"rrt_base");
             }
         
+            cout << "MODEL CREATED" << endl;
+            // cout << init.size() << " = " << goal.size() << endl;
+
             //convert the state and goal into eigen vectors
             vector<double> init = request->state;
             vector<double> goal = request->goal;
 
             Eigen::VectorXd init_input = Eigen::VectorXd::Zero(init.size());
             Eigen::VectorXd goal_input = Eigen::VectorXd::Zero(goal.size());
+            cout << init.size() << " = " << goal.size() << endl;
 
             for (int i = 0; i < init.size(); i++){
                 init_input(i) = init[i];
                 goal_input(i) = goal[i];
             }
 
+            cout << "calculating ctrl" << endl;
+
+            cout << "Init: ( " ;
+            for (int i = 0; i < init.size(); i++){
+
+                cout << init[i] << " ";
+
+            }
+            cout << " )" << endl;
+
+            cout << "Goal: ( " ;
+            for (int i = 0; i < init.size(); i++){
+
+                cout << goal[i] << " ";
+
+            }
+            cout << " )" << endl;
+
+            //FIXME: input aquired constraints so it is recognized when the RRT planner is computing.
             Eigen::VectorXd ctrl = this->mpc_ctrl->get_control(init_input,goal_input,request->time, request->samples);
+            cout << "ctrl calculated" << endl;
+
 
             vector<double> out;
 
@@ -106,6 +136,7 @@ class control_node : public rclcpp::Node
                 out.push_back(ctrl(i));
             }
 
+            cout << "sending response " << endl;
             response->ctrl = out;
 
         }

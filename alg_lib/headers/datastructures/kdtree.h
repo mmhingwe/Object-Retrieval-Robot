@@ -25,6 +25,7 @@ class kdTree{
 
     kdnode* root;
     int dim;
+    int size;
     std::pair<kdnode*,double> dfs(kdnode* curr_ptr, Eigen::VectorXd point, int depth);
     kdnode* recursive_del(kdnode* subroot, Eigen::VectorXd point, int depth);
     kdnode* return_min(kdnode* subroot,int dimension, int depth);
@@ -33,6 +34,7 @@ class kdTree{
         kdTree();
         kdTree(Eigen::VectorXd init);
         ~kdTree();
+        int return_size();
         void insert_node(Eigen::VectorXd point,int idx);
         void populate(Eigen::MatrixXd mat);
         void delete_node(Eigen::VectorXd point);

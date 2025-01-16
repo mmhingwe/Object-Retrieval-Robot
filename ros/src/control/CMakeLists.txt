@@ -32,14 +32,19 @@ target_include_directories(ctrl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/headers) # Ed
 ament_target_dependencies(ctrl rclcpp std_msgs messages)
 # ament_target_dependencies(ctrl /usr/local/lib/libnlopt.so)
 
+set_target_properties(ctrl 
+  PROPERTIES
+  INSTALL_RPATH "~/codebases/mujoco_build/lib"
+)
+
 target_link_libraries(
   ctrl
-  ${MUJOCO_PATH}/lib/libmujoco.so
   Eigen3::Eigen
   python3.10 # Link python 3.10 for matplotlib
   /home/mhingwe/Documents/Robot_Projects/Object-Retrieval-Robot/alg_lib/build/libCtrlLibrary.a
   /usr/local/lib/libnlopt.so
   /usr/local/lib/libnlopt.so.0
+  ${MUJOCO_PATH}/lib/libmujoco.so.3.2.0
 )
 
 if(BUILD_TESTING)

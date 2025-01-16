@@ -18,6 +18,7 @@ find_package (Eigen3 3.4 REQUIRED NO_MODULE)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Userinput.msg"
   "msg/Ctrlmsg.msg"
+  "msg/Sensormsg.msg"
   "srv/Ctrlsrv.srv"
   #DEPENDENCIES std_msgs 
 )

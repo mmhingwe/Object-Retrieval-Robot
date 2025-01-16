@@ -1,9 +1,15 @@
 cmake_minimum_required(VERSION 3.8)
-project(mujoco)
+project(sensor)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+
+# find dependencies
+find_package(ament_cmake REQUIRED)
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
 
 #Set C++ version
 set(CMAKE_CXX_STANDARD 14)
@@ -22,10 +28,11 @@ set(MUJOCO_PATH "~/codebases/mujoco-3.1.6")
 include_directories(include ${MUJOCO_PATH}/include)
 
 # Add MujoCo dependencies
-add_executable(start_mujoco src/start_mujoco.cpp)
-ament_target_dependencies(start_mujoco rclcpp std_msgs messages)
+add_executable(sensor_handle src/sensor_handle.cpp)
+ament_target_dependencies(sensor_handle rclcpp std_msgs messages)
 target_link_libraries(
-  start_mujoco
+  sensor_handle
+  Eigen3::Eigen
   ${MUJOCO_PATH}/bin/mujoco_plugin/libactuator.so
   ${MUJOCO_PATH}/bin/mujoco_plugin/libelasticity.so
   ${MUJOCO_PATH}/bin/mujoco_plugin/libsdf.so
@@ -43,12 +50,12 @@ target_link_libraries(
 
 
 install(TARGETS
-  start_mujoco
+  sensor_handle
   DESTINATION lib/${PROJECT_NAME})
 
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+
+
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

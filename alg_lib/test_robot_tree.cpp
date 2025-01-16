@@ -15,7 +15,8 @@ using namespace std;
 
 int main(){
 
-    string model_filename = "/home/mhingwe/Documents/Robot_Projects/Object-Retrieval-Robot/universal_robots_ur10e/scene.xml";
+    // string model_filename = "/home/mhingwe/Documents/Robot_Projects/Object-Retrieval-Robot/alg_lib/universal_robots_ur10e/scene.xml";
+    string model_filename = "/home/mhingwe/Documents/Robot_Projects/Object-Retrieval-Robot/alg_lib/universal_robots_ur10e/ur10e.xml";
     mjModel* m;
     mjData* d;
     char error[1000] = "Could not load model";
@@ -101,5 +102,46 @@ int main(){
     
     pair<Eigen::VectorXd,int> out = test_tree.find_nearest(p6);
     cout << out.first << endl;
+
+
+    cout << "Testing forward kinematics function: " << endl;
+    Eigen::VectorXd fkt(3);
+    fkt << 3.1415/2,0,3.1415/2;
+    vector<Eigen::MatrixXd> test_out = model_tree.FK(fkt);
+
+    cout << endl << endl;
+    for (int i = 0; i < test_out.size(); i++){
+        // cout << test_out[i](0,3) << " " << test_out[i](1,3) << " " << test_out[2](2,3) << endl;
+
+        for (int j = 0; j < test_out[i].rows(); j++){
+
+            for (int k = 0; k < test_out[i].cols(); k++ ){
+
+                cout << test_out[i](j,k) << " ";
+
+            }
+
+            cout << endl;
+
+        }
+
+        cout << endl; 
+
+    }
+
+    mj_forward(m, d);
+
+    cout << endl << "mujoco joint coordinates: " << endl;
+    // cout << d->qpos[0] << endl;
+    for(int i = 0; i < 21; i++){
+        if (i % 3 == 0){
+            cout << endl;
+        }
+        cout << d->xpos[i] << " ";
+
+    }
+    cout << endl;
+
+    cout << "TESTS END" << endl;
 
 }

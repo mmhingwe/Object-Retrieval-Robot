@@ -163,6 +163,13 @@ Eigen::MatrixXd exponential_rotation_spatial(Eigen::VectorXd screw, double theta
     Eigen::MatrixXd mat_exp = Eigen::MatrixXd::Identity(3,3)+ (skew_ang * sin(theta)) + ((skew_ang * skew_ang) * (1-cos(theta)));
     Eigen::MatrixXd p = (Eigen::MatrixXd::Identity(3,3) - mat_exp) * lin_vel + (mat_exp*mat_exp.transpose()) * lin_vel*theta;
  
+    // cout << "SIZES: " << endl;
+    // cout << p.rows() << " " << p.cols()  << endl;
+    // cout << mat_exp.rows() << " " << mat_exp.cols() << endl;
+
+    out.block(0,0,3,3) = mat_exp;
+    out.block(0,3,3,1) = p;
+    
     return out;
 
 }

@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <pathplan.h>
+#include <datastructures/octtree.h>
 #include <util.h>
 #include <Eigen/Core>
 #include <queue>
@@ -12,6 +13,74 @@ namespace plt = matplotlibcpp;
 using namespace std;
 
 int main(){
+
+
+    // Octtree tests:
+    Eigen::MatrixXd space_bounds(3,2);
+    space_bounds << -10,10,-10,10,-10,10;
+    octtree oct_test (space_bounds,3);
+    Eigen::Vector3d pt1; 
+    pt1 << 0,0,0;
+
+    Eigen::Vector3d pt2; 
+    pt2 << 7.5,2.5,2.5;
+
+    Eigen::Vector3d pt3; 
+    pt3 << 7.5,7.5,2.5;
+
+    Eigen::Vector3d pt4; 
+    pt4 << 2.5,7.5,2.5;
+
+    Eigen::Vector3d pt5; 
+    pt5 << 0,0,7.5;
+
+    Eigen::Vector3d pt6; 
+    pt6 << 7.5,2.5,7.5;
+
+    Eigen::Vector3d pt7; 
+    pt7 << 7.5,7.5,7.5;
+
+    Eigen::Vector3d pt8; 
+    pt8 << 2.5,7.5,6.5;
+
+    oct_test.add(pt1);
+    oct_test.add(pt2);
+    oct_test.add(pt3);
+    oct_test.add(pt4);
+    oct_test.add(pt5);
+    oct_test.add(pt6);
+    oct_test.add(pt7);
+    oct_test.add(pt8);
+
+    Eigen::Vector3d pt_exist; 
+    pt_exist << 0,2.5,2.5;
+    if (oct_test.is_collision(pt_exist)){
+        cout << "COLLISION" << endl;
+    }
+    else{
+        cout << "NO COLLISION" << endl;
+    }
+
+    Eigen::MatrixXd test_bounds(3,2);
+    space_bounds << 0,10,-10,7, -7,2;
+
+    vector<Eigen::MatrixXd> bounding_boxes = oct_test.return_overlap_area(test_bounds);
+
+    cout << "Overlap bounds print: " << endl;
+    for (int i = 0; i < bounding_boxes.size(); i++){
+
+        cout << bounding_boxes[i](0,0) << "  " << bounding_boxes[i](0,1) << endl;
+        cout << bounding_boxes[i](1,0) << "  " << bounding_boxes[i](1,1) << endl;
+        cout << bounding_boxes[i](2,0) << "  " << bounding_boxes[i](2,1) << endl;
+        cout << endl << endl; 
+
+    } 
+    
+
+
+    return 1;
+
+
 
     // Define initial position
     Eigen::VectorXd init(2);
@@ -79,5 +148,9 @@ int main(){
 
     plt::plot(x,y,"og");
     plt::show();
+
+
+    
+
 
 }

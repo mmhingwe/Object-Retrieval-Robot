@@ -1,1 +1,5 @@
-
+alg_lib/build/
+alg_lib/universal_robots_ur10e
+ros/install/
+ros/build/
+ros/log/
